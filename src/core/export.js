@@ -297,15 +297,15 @@ export async function exportToPNG(element, filename, statusElement, options = {}
 						vignette.style.pointerEvents = 'none';
 						vignette.style.zIndex = '5';
 
-				if (state.overlayBgType === 'vignette') {
-					vignette.style.display = 'block';
-					vignette.style.opacity = '1';
-					const colorSolid = hexToRgba(themeColor, 1);
-					const colorTrans = hexToRgba(themeColor, 0);
-					vignette.style.background = `linear-gradient(to bottom, ${colorSolid} 0%, ${colorSolid} 3%, ${colorTrans} 20%, ${colorTrans} 80%, ${colorSolid} 97%, ${colorSolid} 100%)`;
-				} else {
-					vignette.style.display = 'none';
-				}
+						if (state.overlayBgType === 'vignette') {
+							vignette.style.display = 'block';
+							vignette.style.opacity = '1';
+							const colorSolid = hexToRgba(themeColor, 1);
+							const colorTrans = hexToRgba(themeColor, 0);
+							vignette.style.background = `linear-gradient(to bottom, ${colorSolid} 0%, ${colorSolid} 3%, ${colorTrans} 20%, ${colorTrans} 80%, ${colorSolid} 97%, ${colorSolid} 100%)`;
+						} else {
+							vignette.style.display = 'none';
+						}
 					}
 				}
 
@@ -377,15 +377,7 @@ export async function exportToPNG(element, filename, statusElement, options = {}
 					if (state.showCoords === false) coords.style.display = 'none';
 				}
 
-				const attr = clonedDoc.querySelector('#poster-attribution');
-				if (attr) {
-					attr.style.color = textColor;
-					const matWidthLogical = state.matEnabled ? (state.matWidth / scale) : 0;
-					attr.style.right = `${matWidthLogical + (12 / scale)}px`;
-					attr.style.bottom = `${matWidthLogical + (12 / scale)}px`;
-					attr.style.fontSize = `${8 / scale}px`;
-					attr.style.opacity = '0.35';
-				}
+				// Removed attribution parsing
 
 				const clonedDivider = clonedDoc.querySelector('#poster-divider');
 				if (clonedDivider) {

@@ -104,6 +104,8 @@ export function setupControls() {
 	const overlayBgButtons = document.querySelectorAll('.overlay-bg-btn');
 	const overlaySizeButtons = document.querySelectorAll('.overlay-size-btn');
 	const overlaySizeGroup = document.getElementById('overlay-size-group');
+	const textScaleInput = document.getElementById('text-scale-input');
+	const textScaleSlider = document.getElementById('text-scale-slider');
 	const customW = document.getElementById('custom-w');
 	const customH = document.getElementById('custom-h');
 	const presetBtns = document.querySelectorAll('.preset-btn');
@@ -527,6 +529,23 @@ export function setupControls() {
 		});
 	}
 
+	if (textScaleInput && textScaleSlider) {
+		const updateTextScale = (val) => {
+			const num = parseFloat(val);
+			if (!isNaN(num) && num >= 0.5 && num <= 10.0) {
+				updateState({ textScale: num });
+			}
+		};
+
+		textScaleInput.addEventListener('change', (e) => {
+			updateTextScale(e.target.value);
+		});
+
+		textScaleSlider.addEventListener('input', (e) => {
+			updateTextScale(e.target.value);
+		});
+	}
+
 	presetBtns.forEach(btn => {
 		btn.addEventListener('click', () => {
 			const width = parseInt(btn.dataset.width);
@@ -798,6 +817,9 @@ export function setupControls() {
 		if (matBorderOpacitySlider) matBorderOpacitySlider.value = currentState.matBorderOpacity || 1;
 		if (matBorderOpacityValue) matBorderOpacityValue.textContent = `${Math.round((currentState.matBorderOpacity || 1) * 100)}%`;
 
+		if (textScaleInput) textScaleInput.value = currentState.textScale || 1.0;
+		if (textScaleSlider) textScaleSlider.value = currentState.textScale || 1.0;
+
 		let isMainPresetActive = false;
 		if (presetBtns && presetBtns.length) {
 			presetBtns.forEach(btn => {
@@ -859,7 +881,6 @@ export function updatePreviewStyles(currentState) {
 	const vignetteOverlay = document.getElementById('vignette-overlay');
 	const matBorder = document.getElementById('mat-border');
 	const divider = document.getElementById('poster-divider');
-	const attribution = document.getElementById('poster-attribution');
 
 	const theme = getSelectedTheme();
 	const artisticTheme = getSelectedArtisticTheme();
@@ -1006,9 +1027,25 @@ export function updatePreviewStyles(currentState) {
 				coordsSize = isMobile ? 14 : 20;
 			}
 			overlay.style.padding = `${pad}px`;
-			displayCity.style.fontSize = `${citySize}px`;
-			if (displayCountry) displayCountry.style.fontSize = `${countrySize}px`;
-			displayCoords.style.fontSize = `${coordsSize}px`;
+
+			const scale = currentState.textScale || 1.0;
+			displayCity.style.fontSize = `${citySize * scale}px`;
+			displayCity.style.marginBottom = `${16 * scale}px`;
+
+			const divider = document.getElementById('poster-divider');
+			if (divider) {
+				divider.style.width = `${128 * scale}px`;
+				divider.style.height = `${Math.max(1, 1 * scale)}px`;
+				divider.style.marginBottom = `${16 * scale}px`;
+			}
+
+			if (displayCountry) {
+				displayCountry.style.fontSize = `${countrySize * scale}px`;
+				displayCountry.style.lineHeight = '1.2';
+			}
+			displayCoords.style.fontSize = `${coordsSize * scale}px`;
+			displayCoords.style.lineHeight = '1.2';
+			displayCoords.style.marginTop = `${4 * scale}px`;
 
 			const overlayX = currentState.overlayX !== undefined ? currentState.overlayX : 0.5;
 			const overlayY = currentState.overlayY !== undefined ? currentState.overlayY : 0.85;
@@ -1062,11 +1099,7 @@ export function updatePreviewStyles(currentState) {
 		const coordsVisible = currentState.showCoords !== false;
 		divider.style.display = (countryVisible || coordsVisible) ? '' : 'none';
 	}
-	if (attribution) {
-		attribution.style.color = activeTheme.text || activeTheme.textColor;
-		attribution.style.right = `${matWidth + 12}px`;
-		attribution.style.bottom = `${matWidth + 12}px`;
-	}
+	// Removed attribution styling
 
 	updateMarkerStyles(currentState);
 
