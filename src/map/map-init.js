@@ -521,8 +521,9 @@ export function updateMarkerStyles(state) {
 
 			artisticMarker.on('dragend', () => {
 				const pos = artisticMarker.getLngLat();
-				updateState({ markerLat: pos.lat, markerLon: pos.lng });
+				updateState({ markerLat: pos.lat, markerLon: pos.lng, lat: pos.lat, lon: pos.lng });
 				if (marker) marker.setLatLng([pos.lat, pos.lng]);
+				updateMapPosition(pos.lat, pos.lng);
 			});
 		}
 	}
