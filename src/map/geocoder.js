@@ -30,3 +30,23 @@ export function formatCoords(lat, lon) {
 
 	return `${Math.abs(lat).toFixed(4)}° ${latDir}, ${Math.abs(lon).toFixed(4)}° ${lonDir}`;
 }
+
+export async function reverseGeocode(lat, lon, opts = {}) {
+	const { signal } = opts;
+	try {
+		const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1`;
+		const response = await fetch(url, { signal, headers: { 'Accept': 'application/json' } });
+		const data = await response.json();
+
+		if (data && data.address) {
+			const city = data.address.city || data.address.town || data.address.village || data.address.municipality || data.address.county || '';
+			const country = data.address.country || '';
+			return { city, country };
+		}
+		return null;
+	} catch (error) {
+		if (error && error.name === 'AbortError') return null;
+		console.error("Reverse geocoding error:", error);
+		return null;
+	}
+}

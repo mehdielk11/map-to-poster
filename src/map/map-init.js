@@ -1,6 +1,7 @@
 import L from 'leaflet';
 import maplibregl from 'maplibre-gl';
 import { state, updateState, getSelectedTheme, getSelectedArtisticTheme } from '../core/state.js';
+import { reverseGeocode } from './geocoder.js';
 
 let map = null;
 let tileLayer = null;
@@ -13,6 +14,16 @@ let styleChangeInProgress = false;
 let pendingArtisticStyle = null;
 let pendingArtisticThemeName = null;
 let currentRoadThickness = null;
+
+async function updateLocationNames(lat, lon) {
+	const res = await reverseGeocode(lat, lon);
+	if (res && res.city) {
+		updateState({
+			city: res.city.toUpperCase(),
+			country: res.country.toUpperCase()
+		});
+	}
+}
 
 const MARKER_ICONS = {
 	pin: `
@@ -72,6 +83,7 @@ export function initMap(containerId, initialCenter, initialZoom, initialTileUrl)
 		updateState({ markerLat: pos.lat, markerLon: pos.lng, lat: pos.lat, lon: pos.lng });
 		if (artisticMarker) artisticMarker.setLngLat([pos.lng, pos.lat]);
 		updateMapPosition(pos.lat, pos.lng);
+		updateLocationNames(pos.lat, pos.lng);
 	});
 
 	map.on('moveend', () => {
@@ -158,6 +170,7 @@ function initArtisticMap(containerId, center, zoom) {
 		updateState({ markerLat: pos.lat, markerLon: pos.lng, lat: pos.lat, lon: pos.lng });
 		if (marker) marker.setLatLng([pos.lat, pos.lng]);
 		updateMapPosition(pos.lat, pos.lng);
+		updateLocationNames(pos.lat, pos.lng);
 	});
 }
 
@@ -524,6 +537,7 @@ export function updateMarkerStyles(state) {
 				updateState({ markerLat: pos.lat, markerLon: pos.lng, lat: pos.lat, lon: pos.lng });
 				if (marker) marker.setLatLng([pos.lat, pos.lng]);
 				updateMapPosition(pos.lat, pos.lng);
+				updateLocationNames(pos.lat, pos.lng);
 			});
 		}
 	}
@@ -554,6 +568,7 @@ export function enableMarkerPlacementMode() {
 		updateMarkerStyles(state); // Ensure style updates immediately
 		updateMapPosition(lat, lon);
 		removePlacementMode();
+		updateLocationNames(lat, lon);
 	};
 
 	const onArtisticMapClick = (e) => {
@@ -563,6 +578,7 @@ export function enableMarkerPlacementMode() {
 		updateMarkerStyles(state); // Ensure style updates immediately
 		updateMapPosition(lat, lon);
 		removePlacementMode();
+		updateLocationNames(lat, lon);
 	};
 
 	if (map) map.once('click', onMapClick);

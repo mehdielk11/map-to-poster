@@ -11,7 +11,7 @@ import {
 	updateMarkerStyles,
 	enableMarkerPlacementMode
 } from '../map/map-init.js';
-import { searchLocation, formatCoords } from '../map/geocoder.js';
+import { searchLocation, formatCoords, reverseGeocode } from '../map/geocoder.js';
 
 
 export function setupControls() {
@@ -395,16 +395,27 @@ export function setupControls() {
 		if (item) selectResultElement(item);
 	});
 
+	async function handleCoordinateChange(lat, lon) {
+		updateState({ lat, lon, markerLat: lat, markerLon: lon });
+		updateMapPosition(lat, lon);
+
+		const res = await reverseGeocode(lat, lon);
+		if (res && res.city) {
+			const newCity = res.city.toUpperCase();
+			const newCountry = res.country.toUpperCase();
+			updateState({ city: newCity, country: newCountry });
+			if (searchInput) searchInput.value = res.city;
+		}
+	}
+
 	latInput.addEventListener('change', (e) => {
 		const lat = parseFloat(e.target.value);
-		updateState({ lat, markerLat: lat });
-		updateMapPosition(lat, state.lon);
+		handleCoordinateChange(lat, state.lon);
 	});
 
 	lonInput.addEventListener('change', (e) => {
 		const lon = parseFloat(e.target.value);
-		updateState({ lon, markerLon: lon });
-		updateMapPosition(state.lat, lon);
+		handleCoordinateChange(state.lat, lon);
 	});
 
 	if (cityOverrideInput) {
