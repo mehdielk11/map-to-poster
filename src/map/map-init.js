@@ -175,7 +175,8 @@ function initArtisticMap(containerId, center, zoom) {
 }
 
 function getIconAnchor(iconName, size) {
-	if (iconName === 'pin') return [size / 2, size];
+	const shape = iconName.split('_')[0];
+	if (shape === 'pin' || shape === 'heart') return [size / 2, size];
 	return [size / 2, size / 2];
 }
 
@@ -498,7 +499,7 @@ export function updateMarkerStyles(state) {
 		.replace('class="marker-pin"', `style="width: ${size}px; height: ${size}px; color: ${color};"`);
 
 	const anchorX = size / 2;
-	const anchorY = iconType === 'pin' ? size : size / 2;
+	const anchorY = (iconType === 'pin' || iconType === 'heart') ? size : size / 2;
 
 	if (marker) {
 		if (state.showMarker) {
@@ -531,7 +532,7 @@ export function updateMarkerStyles(state) {
 			artisticMarker = new maplibregl.Marker({
 				element: el,
 				draggable: true,
-				anchor: iconType === 'pin' ? 'bottom' : 'center'
+				anchor: (iconType === 'pin' || iconType === 'heart') ? 'bottom' : 'center'
 			})
 				.setLngLat([state.markerLon, state.markerLat])
 				.addTo(artisticMap);
