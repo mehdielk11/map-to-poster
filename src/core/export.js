@@ -1,5 +1,5 @@
 import html2canvas from 'html2canvas';
-import { getMapInstance, getArtisticMapInstance } from '../map/map-init.js';
+import { getMapInstance, getArtisticMapInstance, applyExportScale, revertExportScale, evaluateLineWidth } from '../map/map-init.js';
 import { state, getSelectedTheme, getSelectedArtisticTheme } from './state.js';
 import { hexToRgba } from './utils.js';
 
@@ -55,12 +55,18 @@ async function captureMapSnapshot() {
 				const originalWidth = artisticContainer.style.width;
 				const originalHeight = artisticContainer.style.height;
 
+				const previewWidth = artisticContainer.offsetWidth || 400;
+				const lineScaleFactor = Math.max(1, effectiveWidth / previewWidth);
+
+				const artisticThemeForScale = getSelectedArtisticTheme();
+				applyExportScale(artisticThemeForScale, lineScaleFactor);
+
 				artisticContainer.style.width = `${effectiveWidth}px`;
 				artisticContainer.style.height = `${effectiveHeight}px`;
 				artisticMap.resize();
 
 				await new Promise(resolve => {
-					const timer = setTimeout(resolve, 1500);
+					const timer = setTimeout(resolve, 2500);
 					artisticMap.once('idle', () => {
 						clearTimeout(timer);
 						resolve();
@@ -91,6 +97,8 @@ async function captureMapSnapshot() {
 				artisticContainer.style.width = originalWidth;
 				artisticContainer.style.height = originalHeight;
 				artisticMap.resize();
+
+				revertExportScale(artisticThemeForScale);
 
 				return data;
 			} catch (e) {
@@ -419,6 +427,320 @@ export async function exportToPNG(element, filename, statusElement, options = {}
 	} catch (error) {
 		console.error('Export failed:', error);
 		alert('Export failed. Please check internet connection or try again.');
+	} finally {
+		if (statusElement) statusElement.classList.add('hidden');
+	}
+}
+
+function escapeXml(str) {
+	return String(str)
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&apos;');
+}
+
+function formatCoordsSVG(lat, lon) {
+	const latDir = lat >= 0 ? 'N' : 'S';
+	const lonDir = lon >= 0 ? 'E' : 'W';
+	return `${Math.abs(lat).toFixed(4)}° ${latDir}, ${Math.abs(lon).toFixed(4)}° ${lonDir}`;
+}
+
+function geoToSvgPath(geometry, projectFn) {
+	const pathParts = [];
+
+	function ringToPath(coords, close) {
+		if (!coords || coords.length === 0) return '';
+		let d = '';
+		for (let i = 0; i < coords.length; i++) {
+			const p = projectFn(coords[i]);
+			if (p === null) continue;
+			d += (i === 0 ? 'M' : 'L') + `${p.x.toFixed(2)},${p.y.toFixed(2)}`;
+		}
+		if (close && d) d += 'Z';
+		return d;
+	}
+
+	const type = geometry.type;
+	const coords = geometry.coordinates;
+
+	if (type === 'Polygon') {
+		for (const ring of coords) {
+			const d = ringToPath(ring, true);
+			if (d) pathParts.push(d);
+		}
+	} else if (type === 'MultiPolygon') {
+		for (const polygon of coords) {
+			for (const ring of polygon) {
+				const d = ringToPath(ring, true);
+				if (d) pathParts.push(d);
+			}
+		}
+	} else if (type === 'LineString') {
+		const d = ringToPath(coords, false);
+		if (d) pathParts.push(d);
+	} else if (type === 'MultiLineString') {
+		for (const line of coords) {
+			const d = ringToPath(line, false);
+			if (d) pathParts.push(d);
+		}
+	} else if (type === 'Point') {
+		const p = projectFn(coords);
+		if (p) pathParts.push(`M${p.x.toFixed(2)},${p.y.toFixed(2)}m-2,0a2,2 0 1,0 4,0a2,2 0 1,0 -4,0`);
+	}
+
+	return pathParts.join('');
+}
+
+const ROAD_LAYER_BASE_WIDTHS = {
+	'road-motorway': 2.0,
+	'road-primary': 1.5,
+	'road-secondary': 1.0,
+	'road-tertiary': 0.8,
+	'road-residential': 0.5,
+	'road-default': 0.5
+};
+
+const ROAD_LAYER_COLOR_KEYS = {
+	'road-motorway': 'road_motorway',
+	'road-primary': 'road_primary',
+	'road-secondary': 'road_secondary',
+	'road-tertiary': 'road_tertiary',
+	'road-residential': 'road_residential',
+	'road-default': 'road_default'
+};
+
+export async function exportToSVG(element, filename, statusElement, options = {}) {
+	if (state.renderMode !== 'artistic') {
+		alert('Vector SVG export is only available in Artistic mode.\nPlease switch to Artistic mode and try again.');
+		return;
+	}
+
+	if (statusElement) statusElement.classList.remove('hidden');
+
+	try {
+		const artisticMap = getArtisticMapInstance();
+		if (!artisticMap) throw new Error('Artistic map not available');
+
+		const targetWidth = state.width;
+		const targetHeight = state.height;
+
+		const artisticTheme = getSelectedArtisticTheme();
+		const bgColor = artisticTheme.bg || '#ffffff';
+		const textColor = artisticTheme.text || '#000000';
+
+		const matEnabled = state.matEnabled;
+		const matWidth = matEnabled ? (state.matWidth || 0) : 0;
+		const mapAreaW = targetWidth - 2 * matWidth;
+		const mapAreaH = targetHeight - 2 * matWidth;
+
+		const container = artisticMap.getContainer();
+		const containerW = container.offsetWidth || 400;
+		const containerH = container.offsetHeight || 400;
+		const scaleX = mapAreaW / containerW;
+		const scaleY = mapAreaH / containerH;
+
+		const zoom = artisticMap.getZoom();
+
+		const projectFn = (coord) => {
+			try {
+				const p = artisticMap.project([coord[0], coord[1]]);
+				return {
+					x: matWidth + p.x * scaleX,
+					y: matWidth + p.y * scaleY
+				};
+			} catch {
+				return null;
+			}
+		};
+
+		const features = artisticMap.queryRenderedFeatures();
+
+		const waterPaths = [];
+		const parkPaths = [];
+		const roadGroups = {};
+
+		for (const f of features) {
+			const layerId = f.layer && f.layer.id;
+			if (!layerId || !f.geometry) continue;
+
+			const d = geoToSvgPath(f.geometry, projectFn);
+			if (!d) continue;
+
+			if (layerId === 'water') {
+				waterPaths.push(d);
+			} else if (layerId === 'park') {
+				parkPaths.push(d);
+			} else if (layerId.startsWith('road-')) {
+				if (!roadGroups[layerId]) roadGroups[layerId] = [];
+				roadGroups[layerId].push(d);
+			}
+		}
+
+		let svgContent = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${targetWidth}" height="${targetHeight}" viewBox="0 0 ${targetWidth} ${targetHeight}">
+  <defs>
+    <clipPath id="map-clip">
+      <rect x="${matWidth}" y="${matWidth}" width="${mapAreaW}" height="${mapAreaH}" />
+    </clipPath>`;
+
+		if (state.overlayBgType === 'vignette') {
+			svgContent += `
+    <linearGradient id="vig" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="${escapeXml(bgColor)}" stop-opacity="1"/>
+      <stop offset="3%" stop-color="${escapeXml(bgColor)}" stop-opacity="1"/>
+      <stop offset="20%" stop-color="${escapeXml(bgColor)}" stop-opacity="0"/>
+      <stop offset="80%" stop-color="${escapeXml(bgColor)}" stop-opacity="0"/>
+      <stop offset="97%" stop-color="${escapeXml(bgColor)}" stop-opacity="1"/>
+      <stop offset="100%" stop-color="${escapeXml(bgColor)}" stop-opacity="1"/>
+    </linearGradient>`;
+		}
+
+		svgContent += `
+  </defs>
+  <rect width="${targetWidth}" height="${targetHeight}" fill="${escapeXml(bgColor)}" />
+  <g clip-path="url(#map-clip)">`;
+
+		if (waterPaths.length > 0) {
+			svgContent += `\n    <path d="${waterPaths.join('')}" fill="${escapeXml(artisticTheme.water)}" stroke="none" />`;
+		}
+
+		if (parkPaths.length > 0) {
+			svgContent += `\n    <path d="${parkPaths.join('')}" fill="${escapeXml(artisticTheme.parks)}" stroke="none" />`;
+		}
+
+		const roadOrder = ['road-default', 'road-residential', 'road-tertiary', 'road-secondary', 'road-primary', 'road-motorway'];
+		for (const layerId of roadOrder) {
+			const paths = roadGroups[layerId];
+			if (!paths || paths.length === 0) continue;
+
+			const colorKey = ROAD_LAYER_COLOR_KEYS[layerId] || 'road_default';
+			const color = artisticTheme[colorKey] || artisticTheme.road_default;
+			const baseW = ROAD_LAYER_BASE_WIDTHS[layerId] || 0.5;
+			const lineW = evaluateLineWidth(baseW, Math.max(scaleX, scaleY), zoom);
+
+			svgContent += `\n    <path d="${paths.join('')}" fill="none" stroke="${escapeXml(color)}" stroke-width="${lineW.toFixed(2)}" stroke-linecap="round" stroke-linejoin="round" />`;
+		}
+
+		svgContent += '\n  </g>';
+
+		if (state.overlayBgType === 'vignette') {
+			svgContent += `\n  <rect x="${matWidth}" y="${matWidth}" width="${mapAreaW}" height="${mapAreaH}" fill="url(#vig)" />`;
+		}
+
+		if (matEnabled && state.matShowBorder) {
+			const bw = state.matBorderWidth || 1;
+			const opacity = state.matBorderOpacity || 1;
+			svgContent += `\n  <rect x="${matWidth}" y="${matWidth}" width="${mapAreaW}" height="${mapAreaH}" fill="none" stroke="${escapeXml(textColor)}" stroke-width="${bw}" opacity="${opacity}" />`;
+		}
+
+		if (state.showMarker) {
+			const markerSvg = MARKER_ICONS_EXPORT[state.markerIcon || 'pin'] || MARKER_ICONS_EXPORT.pin;
+			const baseSize = 40;
+			const markerSize = Math.round(baseSize * (state.markerSize || 1));
+
+			const mCenter = artisticMap.getCenter();
+			const tileSize = 512;
+			const scaleMap = Math.pow(2, zoom) * tileSize;
+			const centerPoint = project(mCenter.lat, mCenter.lng, scaleMap);
+			const markerPoint = project(state.markerLat, state.markerLon, scaleMap);
+
+			const mx = matWidth + (mapAreaW / 2) + (markerPoint.x - centerPoint.x) * scaleX;
+			const my = matWidth + (mapAreaH / 2) + (markerPoint.y - centerPoint.y) * scaleY;
+
+			const anchorX = markerSize / 2;
+			const anchorY = (state.markerIcon || 'pin') === 'pin' ? markerSize : markerSize / 2;
+
+			const coloredSvg = markerSvg
+				.replace('currentColor', textColor)
+				.replace('width="100"', `width="${markerSize}"`)
+				.replace('height="100"', `height="${markerSize}"`);
+
+			svgContent += `\n  <g transform="translate(${(mx - anchorX).toFixed(2)}, ${(my - anchorY).toFixed(2)})">${coloredSvg}</g>`;
+		}
+
+		const overlaySize = state.overlaySize || 'medium';
+		if (overlaySize !== 'none') {
+			let citySize = 64;
+			let countrySize = 20;
+			let coordsSize = 16;
+
+			if (overlaySize === 'small') {
+				citySize = 40; countrySize = 14; coordsSize = 12;
+			} else if (overlaySize === 'large') {
+				citySize = 96; countrySize = 24; coordsSize = 20;
+			}
+
+			const textScale = state.textScale || 1.0;
+			citySize = Math.round(citySize * textScale);
+			countrySize = Math.round(countrySize * textScale);
+			coordsSize = Math.round(coordsSize * textScale);
+
+			const overlayX = state.overlayX !== undefined ? state.overlayX : 0.5;
+			const overlayY = state.overlayY !== undefined ? state.overlayY : 0.85;
+			const cx = overlayX * targetWidth;
+			const cy = overlayY * targetHeight;
+
+			const cityText = (state.cityOverride && state.cityOverride.length) ? state.cityOverride : state.city;
+			const countryText = (state.countryOverride && state.countryOverride.length) ? state.countryOverride : state.country;
+			const coordsText = formatCoordsSVG(state.lat, state.lon);
+
+			const showCountry = state.showCountry !== false && !!countryText;
+			const showCoords = state.showCoords !== false;
+			const showDivider = showCountry || showCoords;
+
+			const cityLetterSpacing = citySize * 0.25;
+			const countryLetterSpacing = countrySize * 0.4;
+			const coordsLetterSpacing = coordsSize * 0.4;
+
+			const cityMarginBottom = 16 * textScale;
+			const dividerWidth = 128 * textScale;
+			const dividerHeight = Math.max(1, 1 * textScale);
+			const dividerMarginBottom = 16 * textScale;
+			const coordsMarginTop = 4 * textScale;
+			const lineHeight = 1.2;
+
+			const halfBlockHeight = (
+				citySize + cityMarginBottom +
+				(showDivider ? dividerHeight + dividerMarginBottom : 0) +
+				(showCountry ? countrySize * lineHeight : 0) +
+				(showCoords ? coordsMarginTop + coordsSize * lineHeight : 0)
+			) / 2;
+
+			let yPos = cy - halfBlockHeight;
+
+			svgContent += `\n  <text x="${cx}" y="${yPos + citySize * 0.85}" text-anchor="middle" font-family="${escapeXml(state.cityFont)}" font-size="${citySize}" font-weight="bold" fill="${escapeXml(textColor)}" letter-spacing="${cityLetterSpacing}">${escapeXml(cityText)}</text>`;
+			yPos += citySize + cityMarginBottom;
+
+			if (showDivider) {
+				svgContent += `\n  <rect x="${cx - dividerWidth / 2}" y="${yPos}" width="${dividerWidth}" height="${dividerHeight}" fill="${escapeXml(textColor)}" opacity="0.8" />`;
+				yPos += dividerHeight + dividerMarginBottom;
+			}
+
+			if (showCountry) {
+				svgContent += `\n  <text x="${cx}" y="${yPos + countrySize * 0.85}" text-anchor="middle" font-family="${escapeXml(state.countryFont)}" font-size="${countrySize}" font-weight="bold" fill="${escapeXml(textColor)}" letter-spacing="${countryLetterSpacing}">${escapeXml(countryText)}</text>`;
+				yPos += countrySize * lineHeight;
+			}
+
+			if (showCoords) {
+				yPos += coordsMarginTop;
+				svgContent += `\n  <text x="${cx}" y="${yPos + coordsSize * 0.85}" text-anchor="middle" font-family="${escapeXml(state.coordsFont)}" font-size="${coordsSize}" font-weight="500" fill="${escapeXml(textColor)}" letter-spacing="${coordsLetterSpacing}">${escapeXml(coordsText)}</text>`;
+			}
+		}
+
+		svgContent += '\n</svg>';
+
+		const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement('a');
+		link.download = filename;
+		link.href = url;
+		link.click();
+		setTimeout(() => URL.revokeObjectURL(url), 5000);
+	} catch (error) {
+		console.error('SVG Export failed:', error);
+		alert('SVG Export failed. Please try again.');
 	} finally {
 		if (statusElement) statusElement.classList.add('hidden');
 	}

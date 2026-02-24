@@ -106,6 +106,8 @@ export function setupControls() {
 	const overlaySizeGroup = document.getElementById('overlay-size-group');
 	const textScaleInput = document.getElementById('text-scale-input');
 	const textScaleSlider = document.getElementById('text-scale-slider');
+	const roadThicknessInput = document.getElementById('road-thickness-input');
+	const roadThicknessSlider = document.getElementById('road-thickness-slider');
 	const customW = document.getElementById('custom-w');
 	const customH = document.getElementById('custom-h');
 	const presetBtns = document.querySelectorAll('.preset-btn');
@@ -546,6 +548,23 @@ export function setupControls() {
 		});
 	}
 
+	if (roadThicknessInput && roadThicknessSlider) {
+		const updateRoadThickness = (val) => {
+			const num = parseFloat(val);
+			if (!isNaN(num) && num >= 0.1 && num <= 10.0) {
+				updateState({ roadThickness: num });
+			}
+		};
+
+		roadThicknessInput.addEventListener('change', (e) => {
+			updateRoadThickness(e.target.value);
+		});
+
+		roadThicknessSlider.addEventListener('input', (e) => {
+			updateRoadThickness(e.target.value);
+		});
+	}
+
 	presetBtns.forEach(btn => {
 		btn.addEventListener('click', () => {
 			const width = parseInt(btn.dataset.width);
@@ -819,6 +838,8 @@ export function setupControls() {
 
 		if (textScaleInput) textScaleInput.value = currentState.textScale || 1.0;
 		if (textScaleSlider) textScaleSlider.value = currentState.textScale || 1.0;
+		if (roadThicknessInput) roadThicknessInput.value = currentState.roadThickness || 2.5;
+		if (roadThicknessSlider) roadThicknessSlider.value = currentState.roadThickness || 2.5;
 
 		let isMainPresetActive = false;
 		if (presetBtns && presetBtns.length) {
@@ -852,10 +873,14 @@ export function setupControls() {
 			accentColor = theme.road_primary || theme.text || '#0f172a';
 			exportBtn.classList.remove('bg-slate-900');
 			exportBtn.classList.add('bg-accent');
+			const svgBtn = document.getElementById('export-svg-btn');
+			if (svgBtn) { svgBtn.classList.remove('bg-slate-900'); svgBtn.classList.add('bg-accent'); }
 		} else {
 			accentColor = '#0f172a';
 			exportBtn.classList.add('bg-slate-900');
 			exportBtn.classList.remove('bg-accent');
+			const svgBtn = document.getElementById('export-svg-btn');
+			if (svgBtn) { svgBtn.classList.add('bg-slate-900'); svgBtn.classList.remove('bg-accent'); }
 		}
 
 		const r = parseInt(accentColor.slice(1, 3), 16);

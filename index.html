@@ -272,6 +272,17 @@
 								class="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-accent" />
 						</div>
 
+						<div id="road-thickness-group">
+							<div class="flex justify-between items-center mb-1.5">
+								<span class="label-sm mb-0">Road Thickness</span>
+								<input type="number" id="road-thickness-input" min="0.1" max="10.0" step="0.1"
+									value="2.5"
+									class="w-16 bg-accent-light border-none text-accent text-[9px] font-bold text-center rounded-full py-0.5 px-2 focus:ring-0 appearance-none" />
+							</div>
+							<input type="range" id="road-thickness-slider" min="0.1" max="10.0" step="0.1" value="2.5"
+								class="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-accent" />
+						</div>
+
 						<div id="overlay-position-group">
 							<div class="flex items-center justify-between">
 								<span class="label-sm mb-0">Overlay Position</span>
@@ -589,15 +600,32 @@
 		</div>
 
 		<div class="p-8 border-t border-slate-100 bg-slate-50/50 backdrop-blur-sm">
-			<button id="export-btn"
-				class="w-full bg-slate-900 group-hover:bg-accent hover:bg-accent text-white font-bold py-4 px-6 rounded-2xl shadow-xl shadow-slate-200 transition-all duration-300 flex items-center justify-center space-x-3 group active:scale-[0.98]">
-				<svg class="w-5 h-5 group-hover:translate-y-0.5 transition-transform" fill="none" stroke="currentColor"
-					viewBox="0 0 24 24">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-						d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-				</svg>
-				<span>Generate Export</span>
-			</button>
+			<div class="grid grid-cols-2 gap-3">
+				<button id="export-btn"
+					class="w-full bg-slate-900 hover:bg-accent text-white font-bold py-4 px-4 rounded-2xl shadow-xl shadow-slate-200 transition-all duration-300 flex flex-col items-center justify-center space-y-1 group active:scale-[0.98]">
+					<div class="flex items-center space-x-2">
+						<svg class="w-4 h-4 group-hover:translate-y-0.5 transition-transform" fill="none"
+							stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+								d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+						</svg>
+						<span>PNG</span>
+					</div>
+					<span class="text-[9px] font-normal opacity-60 uppercase tracking-wider">Raster Image</span>
+				</button>
+				<button id="export-svg-btn"
+					class="w-full bg-slate-900 hover:bg-accent text-white font-bold py-4 px-4 rounded-2xl shadow-xl shadow-slate-200 transition-all duration-300 flex flex-col items-center justify-center space-y-1 group active:scale-[0.98]">
+					<div class="flex items-center space-x-2">
+						<svg class="w-4 h-4 group-hover:translate-y-0.5 transition-transform" fill="none"
+							stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+								d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+						</svg>
+						<span>SVG</span>
+					</div>
+					<span class="text-[9px] font-normal opacity-60 uppercase tracking-wider">Vector Image</span>
+				</button>
+			</div>
 			<div id="export-status" class="mt-4 flex items-center justify-center space-x-2 hidden">
 				<div class="w-1.5 h-1.5 bg-white rounded-full animate-bounce" style="animation-delay: 0s"></div>
 				<div class="w-1.5 h-1.5 bg-white rounded-full animate-bounce" style="animation-delay: 0.1s"></div>

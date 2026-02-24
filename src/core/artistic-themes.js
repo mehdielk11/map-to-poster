@@ -450,16 +450,16 @@ export const artisticThemes = {
 	},
 	taupe_city: {
 		name: "Taupe City",
-		description: "Warm beige background with striking monochrome roads and grey parks",
-		bg: "#EAE3D5",
-		text: "#1A1A1A",
-		water: "#C5BDB0",
-		parks: "#9D9790",
+		description: "Transparent background with beautiful striking greyscale elements",
+		bg: "transparent",
+		text: "#111111",
+		water: "#EDEDED",
+		parks: "#D4D4D4",
 		road_motorway: "#000000",
-		road_primary: "#1A1A1A",
-		road_secondary: "#333333",
-		road_tertiary: "#4D4D4D",
-		road_residential: "#7A7A7A",
-		road_default: "#4D4D4D"
+		road_primary: "#262626",
+		road_secondary: "#404040",
+		road_tertiary: "#737373",
+		road_residential: "#A3A3A3",
+		road_default: "#737373"
 	}
 };

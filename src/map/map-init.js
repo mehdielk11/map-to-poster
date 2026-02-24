@@ -1,6 +1,6 @@
 import L from 'leaflet';
 import maplibregl from 'maplibre-gl';
-import { updateState, getSelectedTheme, getSelectedArtisticTheme } from '../core/state.js';
+import { state, updateState, getSelectedTheme, getSelectedArtisticTheme } from '../core/state.js';
 
 let map = null;
 let tileLayer = null;
@@ -12,6 +12,7 @@ let isSyncing = false;
 let styleChangeInProgress = false;
 let pendingArtisticStyle = null;
 let pendingArtisticThemeName = null;
+let currentRoadThickness = null;
 
 const MARKER_ICONS = {
 	pin: `
@@ -208,9 +209,11 @@ export function updateMarkerPosition(lat, lon) {
 
 export function updateArtisticStyle(theme) {
 	if (!artisticMap) return;
-	if (currentArtisticThemeName === theme.name) return;
+	const roadThicknessChanged = currentRoadThickness !== state.roadThickness;
+	if (!roadThicknessChanged && currentArtisticThemeName === theme.name) return;
 
 	currentArtisticThemeName = theme.name;
+	currentRoadThickness = state.roadThickness;
 	const style = generateMapLibreStyle(theme);
 
 	if (styleChangeInProgress) {
@@ -229,7 +232,43 @@ export function updateArtisticStyle(theme) {
 	}
 }
 
-function generateMapLibreStyle(theme) {
+function zoomLineWidth(base, scaleFactor) {
+	const s = scaleFactor * (state.roadThickness || 2.5); // Use dynamic road thickness
+	return [
+		'interpolate', ['linear'], ['zoom'],
+		5, base * 0.4 * s,
+		8, base * 0.6 * s,
+		10, base * 0.8 * s,
+		12, base * 1.0 * s,
+		14, base * 1.6 * s,
+		16, base * 2.5 * s,
+		18, base * 4.0 * s
+	];
+}
+
+export function evaluateLineWidth(baseWidth, scaleFactor, zoom) {
+	const s = scaleFactor * (state.roadThickness || 2.5); // Use dynamic road thickness
+	const stops = [
+		[5, baseWidth * 0.4 * s],
+		[8, baseWidth * 0.6 * s],
+		[10, baseWidth * 0.8 * s],
+		[12, baseWidth * 1.0 * s],
+		[14, baseWidth * 1.6 * s],
+		[16, baseWidth * 2.5 * s],
+		[18, baseWidth * 4.0 * s]
+	];
+	if (zoom <= stops[0][0]) return stops[0][1];
+	if (zoom >= stops[stops.length - 1][0]) return stops[stops.length - 1][1];
+	for (let i = 0; i < stops.length - 1; i++) {
+		if (zoom >= stops[i][0] && zoom <= stops[i + 1][0]) {
+			const t = (zoom - stops[i][0]) / (stops[i + 1][0] - stops[i][0]);
+			return stops[i][1] + t * (stops[i + 1][1] - stops[i][1]);
+		}
+	}
+	return baseWidth * s;
+}
+
+export function generateMapLibreStyle(theme, scaleFactor = 1) {
 	return {
 		version: 8,
 		names: theme.name,
@@ -265,7 +304,7 @@ function generateMapLibreStyle(theme) {
 				'source-layer': 'transportation',
 				type: 'line',
 				filter: ['!', ['match', ['get', 'class'], ['motorway', 'primary', 'secondary', 'tertiary', 'residential'], true, false]],
-				paint: { 'line-color': theme.road_default, 'line-width': 0.5 }
+				paint: { 'line-color': theme.road_default, 'line-width': zoomLineWidth(0.5, scaleFactor) }
 			},
 			{
 				id: 'road-residential',
@@ -273,7 +312,7 @@ function generateMapLibreStyle(theme) {
 				'source-layer': 'transportation',
 				type: 'line',
 				filter: ['==', ['get', 'class'], 'residential'],
-				paint: { 'line-color': theme.road_residential, 'line-width': 0.5 }
+				paint: { 'line-color': theme.road_residential, 'line-width': zoomLineWidth(0.5, scaleFactor) }
 			},
 			{
 				id: 'road-tertiary',
@@ -281,7 +320,7 @@ function generateMapLibreStyle(theme) {
 				'source-layer': 'transportation',
 				type: 'line',
 				filter: ['==', ['get', 'class'], 'tertiary'],
-				paint: { 'line-color': theme.road_tertiary, 'line-width': 0.8 }
+				paint: { 'line-color': theme.road_tertiary, 'line-width': zoomLineWidth(0.8, scaleFactor) }
 			},
 			{
 				id: 'road-secondary',
@@ -289,7 +328,7 @@ function generateMapLibreStyle(theme) {
 				'source-layer': 'transportation',
 				type: 'line',
 				filter: ['==', ['get', 'class'], 'secondary'],
-				paint: { 'line-color': theme.road_secondary, 'line-width': 1.0 }
+				paint: { 'line-color': theme.road_secondary, 'line-width': zoomLineWidth(1.0, scaleFactor) }
 			},
 			{
 				id: 'road-primary',
@@ -297,7 +336,7 @@ function generateMapLibreStyle(theme) {
 				'source-layer': 'transportation',
 				type: 'line',
 				filter: ['==', ['get', 'class'], 'primary'],
-				paint: { 'line-color': theme.road_primary, 'line-width': 1.5 }
+				paint: { 'line-color': theme.road_primary, 'line-width': zoomLineWidth(1.5, scaleFactor) }
 			},
 			{
 				id: 'road-motorway',
@@ -305,10 +344,32 @@ function generateMapLibreStyle(theme) {
 				'source-layer': 'transportation',
 				type: 'line',
 				filter: ['==', ['get', 'class'], 'motorway'],
-				paint: { 'line-color': theme.road_motorway, 'line-width': 2.0 }
+				paint: { 'line-color': theme.road_motorway, 'line-width': zoomLineWidth(2.0, scaleFactor) }
 			}
 		]
 	};
+}
+
+export function applyExportScale(theme, scaleFactor) {
+	if (!artisticMap) return;
+	const style = generateMapLibreStyle(theme, scaleFactor);
+	try {
+		artisticMap.setStyle(style);
+	} catch (e) {
+		console.warn('Failed to apply export scale:', e);
+	}
+}
+
+export function revertExportScale(theme) {
+	if (!artisticMap) return;
+	currentArtisticThemeName = null;
+	const style = generateMapLibreStyle(theme, 1);
+	styleChangeInProgress = true;
+	try {
+		artisticMap.setStyle(style);
+	} catch (e) {
+		console.warn('Failed to revert export scale:', e);
+	}
 }
 
 export function updateMapPosition(lat, lon, zoom, options = { animate: true }) {

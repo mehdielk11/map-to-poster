@@ -40,6 +40,7 @@ export const defaultState = {
 	showCountry: true,
 	showCoords: true,
 	textScale: 1.0,
+	roadThickness: 2.5,
 };
 
 export const state = { ...defaultState };
@@ -77,7 +78,8 @@ const SAVED_KEYS = [
 	'overlayY',
 	'showCountry',
 	'showCoords',
-	'textScale'
+	'textScale',
+	'roadThickness'
 ];
 
 function loadSettings() {

@@ -2,7 +2,7 @@ import './style.css';
 import { subscribe, state, getSelectedTheme } from './src/core/state.js';
 import { initMap, updateMapTheme, invalidateMapSize, waitForTilesLoad, waitForArtisticIdle, updateMarkerVisibility, updateMarkerPosition } from './src/map/map-init.js';
 import { setupControls, updatePreviewStyles } from './src/ui/form.js';
-import { exportToPNG } from './src/core/export.js';
+import { exportToPNG, exportToSVG } from './src/core/export.js';
 
 const initialTheme = getSelectedTheme();
 initMap('map-preview', [state.lat, state.lon], state.zoom, initialTheme.tileUrl);
@@ -10,6 +10,7 @@ initMap('map-preview', [state.lat, state.lon], state.zoom, initialTheme.tileUrl)
 const syncUI = setupControls();
 
 const exportBtn = document.getElementById('export-btn');
+const exportSvgBtn = document.getElementById('export-svg-btn');
 const posterContainer = document.getElementById('poster-container');
 
 const mobileToggle = document.getElementById('mobile-toggle');
@@ -119,6 +120,16 @@ exportBtn.addEventListener('click', async () => {
 	setExportButtonLoading(true, 'processing');
 	try {
 		await exportToPNG(posterContainer, filename, null);
+	} finally {
+		setExportButtonLoading(false);
+	}
+});
+
+exportSvgBtn.addEventListener('click', async () => {
+	const filename = `MapToPoster-${state.city.replace(/\s+/g, '-')}-${Date.now()}.svg`;
+	setExportButtonLoading(true, 'processing');
+	try {
+		await exportToSVG(posterContainer, filename, null);
 	} finally {
 		setExportButtonLoading(false);
 	}
