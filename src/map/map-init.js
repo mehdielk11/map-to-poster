@@ -488,7 +488,11 @@ export function updateMarkerStyles(state) {
 
 	const isArtistic = state.renderMode === 'artistic';
 	const theme = isArtistic ? getSelectedArtisticTheme() : getSelectedTheme();
-	const color = isArtistic ? (theme.road_primary || theme.text || '#0f172a') : (theme.textColor || '#0f172a');
+	let color = isArtistic ? (theme.road_primary || theme.text || '#0f172a') : (theme.textColor || '#0f172a');
+
+	if (state.markerColor && state.markerColor !== 'theme') {
+		color = state.markerColor;
+	}
 
 	const html = (MARKER_ICONS[iconType] || MARKER_ICONS.pin)
 		.replace('class="marker-pin"', `style="width: ${size}px; height: ${size}px; color: ${color};"`);

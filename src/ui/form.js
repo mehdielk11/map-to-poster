@@ -172,6 +172,16 @@ export function setupControls() {
 		});
 	}
 
+	const markerColorBtns = document.querySelectorAll('.marker-color-btn');
+	if (markerColorBtns.length) {
+		markerColorBtns.forEach(btn => {
+			btn.addEventListener('click', () => {
+				updateState({ markerColor: btn.dataset.color });
+				updateMarkerStyles(state);
+			});
+		});
+	}
+
 	if (placeMarkerBtn) {
 		placeMarkerBtn.addEventListener('click', () => {
 			enableMarkerPlacementMode();
@@ -863,6 +873,20 @@ export function setupControls() {
 		if (textScaleSlider) textScaleSlider.value = currentState.textScale || 1.0;
 		if (roadThicknessInput) roadThicknessInput.value = currentState.roadThickness || 2.5;
 		if (roadThicknessSlider) roadThicknessSlider.value = currentState.roadThickness || 2.5;
+
+		const markerColorBtns = document.querySelectorAll('.marker-color-btn');
+		if (markerColorBtns.length) {
+			const currentColor = currentState.markerColor || 'theme';
+			markerColorBtns.forEach(b => {
+				if (b.dataset.color === currentColor) {
+					b.classList.add('ring-2', 'ring-offset-2', 'ring-accent');
+					b.style.borderColor = 'transparent';
+				} else {
+					b.classList.remove('ring-2', 'ring-offset-2', 'ring-accent');
+					b.style.borderColor = (b.dataset.color === 'theme' || b.dataset.color === '#ffffff') ? '#e2e8f0' : 'transparent';
+				}
+			});
+		}
 
 		let isMainPresetActive = false;
 		if (presetBtns && presetBtns.length) {

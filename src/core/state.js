@@ -41,6 +41,7 @@ export const defaultState = {
 	showCoords: true,
 	textScale: 1.0,
 	roadThickness: 2.5,
+	markerColor: 'theme'
 };
 
 export const state = { ...defaultState };
@@ -79,7 +80,8 @@ const SAVED_KEYS = [
 	'showCountry',
 	'showCoords',
 	'textScale',
-	'roadThickness'
+	'roadThickness',
+	'markerColor'
 ];
 
 function loadSettings() {
