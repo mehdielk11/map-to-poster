@@ -8,7 +8,8 @@ import {
 	invalidateMapSize,
 	updateArtisticStyle,
 	updateMapTheme,
-	updateMarkerStyles
+	updateMarkerStyles,
+	enableMarkerPlacementMode
 } from '../map/map-init.js';
 import { searchLocation, formatCoords } from '../map/geocoder.js';
 
@@ -100,6 +101,7 @@ export function setupControls() {
 	const markerIconSelect = document.getElementById('marker-icon-select');
 	const markerSizeSlider = document.getElementById('marker-size-slider');
 	const markerSizeValue = document.getElementById('marker-size-value');
+	const placeMarkerBtn = document.getElementById('place-marker-btn');
 
 	const overlayBgButtons = document.querySelectorAll('.overlay-bg-btn');
 	const overlaySizeButtons = document.querySelectorAll('.overlay-size-btn');
@@ -167,6 +169,16 @@ export function setupControls() {
 			updateState({ markerSize: size / 40.0 });
 			updateMarkerStyles(state);
 			if (markerSizeValue) markerSizeValue.textContent = `${size}px`;
+		});
+	}
+
+	if (placeMarkerBtn) {
+		placeMarkerBtn.addEventListener('click', () => {
+			enableMarkerPlacementMode();
+			const mapContainer = document.getElementById('poster-container');
+			if (mapContainer) {
+				mapContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+			}
 		});
 	}
 

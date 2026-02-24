@@ -69,8 +69,9 @@ export function initMap(containerId, initialCenter, initialZoom, initialTileUrl)
 
 	marker.on('dragend', () => {
 		const pos = marker.getLatLng();
-		updateState({ markerLat: pos.lat, markerLon: pos.lng });
+		updateState({ markerLat: pos.lat, markerLon: pos.lng, lat: pos.lat, lon: pos.lng });
 		if (artisticMarker) artisticMarker.setLngLat([pos.lng, pos.lat]);
+		updateMapPosition(pos.lat, pos.lng);
 	});
 
 	map.on('moveend', () => {
@@ -154,8 +155,9 @@ function initArtisticMap(containerId, center, zoom) {
 
 	artisticMarker.on('dragend', () => {
 		const pos = artisticMarker.getLngLat();
-		updateState({ markerLat: pos.lat, markerLon: pos.lng });
+		updateState({ markerLat: pos.lat, markerLon: pos.lng, lat: pos.lat, lon: pos.lng });
 		if (marker) marker.setLatLng([pos.lat, pos.lng]);
+		updateMapPosition(pos.lat, pos.lng);
 	});
 }
 
@@ -524,4 +526,44 @@ export function updateMarkerStyles(state) {
 			});
 		}
 	}
+}
+
+export function enableMarkerPlacementMode() {
+	const mapContainer = document.getElementById('poster-container');
+	if (!mapContainer) return;
+
+	mapContainer.style.cursor = 'crosshair';
+	const artisticContainer = document.getElementById('artistic-map');
+	const stdContainer = document.getElementById('map-preview');
+	if (artisticContainer) artisticContainer.style.cursor = 'crosshair';
+	if (stdContainer) stdContainer.style.cursor = 'crosshair';
+
+	const removePlacementMode = () => {
+		mapContainer.style.cursor = '';
+		if (artisticContainer) artisticContainer.style.cursor = '';
+		if (stdContainer) stdContainer.style.cursor = '';
+		if (map) map.off('click', onMapClick);
+		if (artisticMap) artisticMap.off('click', onArtisticMapClick);
+	};
+
+	const onMapClick = (e) => {
+		const lat = e.latlng.lat;
+		const lon = e.latlng.lng;
+		updateState({ markerLat: lat, markerLon: lon, lat: lat, lon: lon, showMarker: true });
+		updateMarkerStyles(state); // Ensure style updates immediately
+		updateMapPosition(lat, lon);
+		removePlacementMode();
+	};
+
+	const onArtisticMapClick = (e) => {
+		const lat = e.lngLat.lat;
+		const lon = e.lngLat.lng;
+		updateState({ markerLat: lat, markerLon: lon, lat: lat, lon: lon, showMarker: true });
+		updateMarkerStyles(state); // Ensure style updates immediately
+		updateMapPosition(lat, lon);
+		removePlacementMode();
+	};
+
+	if (map) map.once('click', onMapClick);
+	if (artisticMap) artisticMap.once('click', onArtisticMapClick);
 }
